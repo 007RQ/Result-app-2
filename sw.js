@@ -1,8 +1,9 @@
 'use strict';
 
-// Balance PWA — UI release 5.
+// FORGE PWA — UI release 6.
 // IndexedDB is intentionally not touched by the Service Worker.
-const CACHE_NAME = 'balance-shell-v5';
+const CACHE_NAME = 'forge-shell-v6';
+
 const APP_SHELL = [
   './',
   './index.html',
@@ -22,55 +23,83 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
     const cacheNames = await caches.keys();
+
     await Promise.all(
       cacheNames
-        .filter(name => name.startsWith('balance-shell-') && name !== CACHE_NAME)
+        .filter(name =>
+          (name.startsWith('balance-shell-') ||
+           name.startsWith('forge-shell-')) &&
+          name !== CACHE_NAME
+        )
         .map(name => caches.delete(name))
     );
+
     await self.clients.claim();
   })());
 });
 
 self.addEventListener('fetch', event => {
   const request = event.request;
+
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+
   if (url.origin !== self.location.origin) return;
 
+  // Navigation requests
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       try {
         const response = await fetch(request);
+
         if (response && response.ok) {
           const cache = await caches.open(CACHE_NAME);
           await cache.put('./index.html', response.clone());
         }
+
         return response;
+
       } catch (_) {
-        return (await caches.match('./index.html')) ||
-               (await caches.match('./')) ||
-               new Response('Приложение временно недоступно.', { status: 503 });
+        const cache = await caches.open(CACHE_NAME);
+
+        return (
+          await cache.match('./index.html')
+        ) ||
+        (
+          await cache.match('./')
+        ) ||
+        new Response('Приложение временно недоступно.', {
+          status: 503
+        });
       }
     })());
+
     return;
   }
 
+  // Static resources
   event.respondWith((async () => {
     const cached = await caches.match(request);
+
     if (cached) return cached;
 
     try {
       const response = await fetch(request);
+
       if (response && response.ok) {
         const cache = await caches.open(CACHE_NAME);
         await cache.put(request, response.clone());
       }
+
       return response;
+
     } catch (_) {
       return new Response('Офлайн: ресурс недоступен.', {
         status: 503,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8'
+        }
       });
     }
   })());
