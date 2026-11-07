@@ -1,13 +1,15 @@
+
 'use strict';
 
-// FORGE PWA — UI release 6.
+// Wayne PWA — branded release 7.
 // IndexedDB is intentionally not touched by the Service Worker.
-const CACHE_NAME = 'forge-shell-v6';
+const CACHE_NAME = 'wayne-shell-v7';
 
 const APP_SHELL = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './wayne-logo.png',
   './icon-192.png',
   './icon-512.png'
 ];
@@ -27,8 +29,11 @@ self.addEventListener('activate', event => {
     await Promise.all(
       cacheNames
         .filter(name =>
-          (name.startsWith('balance-shell-') ||
-           name.startsWith('forge-shell-')) &&
+          (
+            name.startsWith('balance-shell-') ||
+            name.startsWith('forge-shell-') ||
+            name.startsWith('wayne-shell-')
+          ) &&
           name !== CACHE_NAME
         )
         .map(name => caches.delete(name))
@@ -44,10 +49,8 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-
   if (url.origin !== self.location.origin) return;
 
-  // Navigation requests
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
       try {
@@ -59,26 +62,20 @@ self.addEventListener('fetch', event => {
         }
 
         return response;
-
       } catch (_) {
         const cache = await caches.open(CACHE_NAME);
 
-        return (
-          await cache.match('./index.html')
-        ) ||
-        (
-          await cache.match('./')
-        ) ||
-        new Response('Приложение временно недоступно.', {
-          status: 503
-        });
+        return (await cache.match('./index.html')) ||
+               (await cache.match('./')) ||
+               new Response('Приложение временно недоступно.', {
+                 status: 503
+               });
       }
     })());
 
     return;
   }
 
-  // Static resources
   event.respondWith((async () => {
     const cached = await caches.match(request);
 
@@ -93,7 +90,6 @@ self.addEventListener('fetch', event => {
       }
 
       return response;
-
     } catch (_) {
       return new Response('Офлайн: ресурс недоступен.', {
         status: 503,
